@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Particle Clash</title>
+  <style>
+    html, body { 
+      background: #232323; 
+      margin: 0; 
+      padding: 0;
+      height: 100vh;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      font-family: 'Courier New', monospace;
+    }
+    canvas { 
+      display: block; 
+      background: #1e1e24; 
+      cursor: crosshair;
+    }
+    #ui {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+    #title { 
+      text-align: center; 
+      color: #fff; 
+      font-size: 24px;
+      font-weight: bold;
+      margin: 20px 0 10px 0;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    }
+    #scoreboard {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 40px;
+      margin: 10px 0;
+    }
+    .score {
+      font-size: 20px;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+      padding: 10px 20px;
+      border-radius: 8px;
+      backdrop-filter: blur(5px);
+      border: 2px solid;
+    }
+    #light-score {
+      color: #fff8b4;
+      background: rgba(240,240,200,0.1);
+      border-color: rgba(240,240,200,0.3);
+    }
+    #dark-score {
+      color: #4a5eff;
+      background: rgba(65,78,155,0.1);
+      border-color: rgba(65,78,155,0.3);
+    }
+    #controls {
+      text-align: center;
+      color: #aaa;
+      font-size: 14px;
+      margin-top: 10px;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+    }
+    .center-divider {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 4px;
+      height: 100vh;
+      background: #484A52;
+      z-index: 5;
+    }
+    @media (max-width: 768px) {
+      #title { font-size: 20px; margin: 10px 0 5px 0; }
+      .score { font-size: 16px; padding: 8px 15px; }
+      #scoreboard { padding: 0 20px; }
+      #controls { font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+<div class="center-divider"></div>
+<div id="ui">
+  <div id="title">Particle Clash</div>
+  <div id="scoreboard">
+    <div id="light-score" class="score">Light: <span id="light-count">0</span></div>
+    <div id="dark-score" class="score">Dark: <span id="dark-count">0</span></div>
+  </div>
+  <div id="controls">Click anywhere to add particles • Left = Light • Right = Dark</div>
+</div>
+<canvas id="game"></canvas>
+<script>
+let W, H;
+const R = 8, N = 40;
+const canvas = document.getElementById("game");
+const ctx = canvas.getContext("2d");
+let particles = [];
+let lightScore = 0, darkScore = 0;
+
+// Fullscreen setup
+function resizeCanvas() {
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = W;
+  canvas.height = H;
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function updateScore() {
+  const lightCount = particles.filter(p => p.side === "light").length;
+  const darkCount = particles.filter(p => p.side === "dark").length;
+  
+  document.getElementById('light-count').textContent = lightCount;
+  document.getElementById('dark-count').textContent = darkCount;
+}
+
+function spawn(side) {
+  for (let i = 0; i < N; i++) {
+    const x = side === "light" ? 30 : W - 30;
+    const y = Math.random() * (H - 80) + 40;
+    const vx = side === "light" ? 2 + Math.random() * 1.5 : -2 - Math.random() * 1.5;
+    const vy = (Math.random() - 0.5) * 2;
+    const color = side === "light" ? "#f0f0c8" : "#414e9b";
+    particles.push({ x, y, vx, vy, color, side });
+  }
+}
+
+// Mouse/Touch interaction
+function addParticleBurst(x, y) {
+  const side = x < W/2 ? "light" : "dark";
+  const color = side === "light" ? "#f0f0c8" : "#414e9b";
+  
+  for(let i = 0; i < 12; i++) {
+    particles.push({
+      x: x,
+      y: y,
+      vx: (Math.random()-0.5) * 8,
+      vy: (Math.random()-0.5) * 8,
+      color: color,
+      side: side
+    });
+  }
+}
+
+canvas.addEventListener('click', (e) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  const y = e.clientY - rect.top;
+  addParticleBurst(x, y);
+});
+
+canvas.addEventListener('touchstart', (e) => {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const touch = e.touches[0];
+  const x = touch.clientX - rect.left;
+  const y = touch.clientY - rect.top;
+  addParticleBurst(x, y);
+});
+
+// Prevent context menu on right click
+canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+spawn("light"); spawn("dark");
+
+function update() {
+  for (const p of particles) { 
+    p.x += p.vx; 
+    p.y += p.vy; 
+    
+    // Less friction so particles keep moving
+    p.vx *= 0.9995;
+    p.vy *= 0.9995;
+    
+    // Add slight random movement to keep particles active
+    p.vx += (Math.random() - 0.5) * 0.02;
+    p.vy += (Math.random() - 0.5) * 0.02;
+    
+    // Limit maximum speed
+    const speed = Math.sqrt(p.vx*p.vx + p.vy*p.vy);
+    if (speed > 4) {
+      p.vx = (p.vx / speed) * 4;
+      p.vy = (p.vy / speed) * 4;
+    }
+    
+    // Bounce off top/bottom walls
+    if (p.y <= R || p.y >= H - R) {
+      p.vy *= -0.8;
+      p.y = Math.max(R, Math.min(H - R, p.y));
+    }
+  }
+  
+  // Collision detection
+  for (let i = particles.length - 1; i >= 0; i--) {
+    for (let j = i - 1; j >= 0; j--) {
+      let a = particles[i], b = particles[j];
+      if (a.side !== b.side) {
+        let dx = a.x - b.x, dy = a.y - b.y;
+        let dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < R * 1.5) {
+          // Create small explosion effect - no glow
+          for(let k = 0; k < 3; k++) {
+            particles.push({
+              x: (a.x + b.x) / 2,
+              y: (a.y + b.y) / 2,
+              vx: (Math.random()-0.5) * 4,
+              vy: (Math.random()-0.5) * 4,
+              color: "#ffffff",
+              side: "neutral",
+              life: 30
+            });
+          }
+          
+          particles.splice(i, 1); 
+          particles.splice(j, 1);
+          i--; 
+          break;
+        }
+      }
+    }
+  }
+  
+  // Remove particles that are off-screen or expired
+  particles = particles.filter(p => {
+    if (p.life !== undefined) {
+      p.life--;
+      return p.life > 0;
+    }
+    return p.x > -50 && p.x < W + 50 && p.y > -50 && p.y < H + 50;
+  });
+  
+  // Maintain minimum particle counts
+  const lightCount = particles.filter(p => p.side === "light").length;
+  const darkCount = particles.filter(p => p.side === "dark").length;
+  
+  if (lightCount < N/2) spawn("light");
+  if (darkCount < N/2) spawn("dark");
+  
+  updateScore();
+}
+
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  
+  // Draw particles - NO GLOW, NO SHADOWS, NO SHINE
+  for (const p of particles) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, R, 0, 2 * Math.PI);
+    ctx.fillStyle = p.color;
+    ctx.fill();
+  }
+}
+
+function loop() { 
+  update(); 
+  draw(); 
+  requestAnimationFrame(loop); 
+}
+
+loop();
+</script>
+</body>
+</html>
